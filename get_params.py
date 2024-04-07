@@ -18,8 +18,8 @@ def get_params():
             # Split the line into components based on ': ' and ', '
             parts = line.replace('\n', '').split(', ')
             # Extract t0, t1, and p_mult values from the parts
-            t0 = int(parts[0].split(': ')[1])
-            t1 = int(parts[1].split(': ')[1])
+            t0 = float(parts[0].split(': ')[1])
+            t1 = float(parts[1].split(': ')[1])
             p_mult = float(parts[2].split(': ')[1])
             # Append a tuple of (t0, t1, p_mult) to the list
             data_tuples.append((t0, t1, p_mult))
