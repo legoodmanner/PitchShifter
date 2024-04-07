@@ -11,11 +11,12 @@ D_LENGTH_MULT = 1
 D_PITCH_MULT = 1
 D_F_FILTER_SIZE = 8 #8
 
-T0 = 1
-T1 = 3
+# T0 = 1
+# T1 = 3
 
 # INPUT_FILENAME = 'alphabet.wav'
-INPUT_FILENAME = 'en001a.wav'
+#INPUT_FILENAME = 'data/en001a.wav'
+INPUT_FILENAME = 'data/en005a.wav'
 OUTPUT_FILENAME = 'output.wav'
 
 class FileProcessor:
