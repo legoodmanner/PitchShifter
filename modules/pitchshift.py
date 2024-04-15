@@ -2,13 +2,14 @@ import numpy as np
 
 from pdb import set_trace as bp
 
+NEW_FREQ = 50
 # TODO: Move peak detection flags to command-line args
 MATCH_PEAKS = True
 PEAK_MAX_DIST = 16
 PEAK_THRESH = 0.01
 
 
-class PhaseVocoder:
+class PhaseVocoder():
     def __init__(self, samplerate, blocksize):
         self.samplerate = samplerate
         self.blocksize = blocksize
@@ -63,3 +64,31 @@ class PhaseVocoder:
 
         return out_block
 
+
+
+class PitchShifter(PhaseVocoder):
+    """
+    Pitch-shifts the input signal by warping the frequency spectrum
+    """
+
+    def __init__(
+        self,
+        samplerate,
+        blocksize,
+        pitch_mult,
+    ):
+        super().__init__(samplerate, blocksize)
+        self.indices = np.arange(self.fft_size)
+        self.pitch_mult = pitch_mult
+
+    def process(self, block, in_shift, out_shift):
+        magnitude, _, frequency = self.analyze(block, in_shift)
+
+        if self.pitch_mult != 1:
+            magnitude = np.interp(self.indices / self.pitch_mult, self.indices, magnitude, 0, 0)
+            frequency = (
+                np.interp(self.indices / self.pitch_mult, self.indices, frequency, 0, 0) * self.pitch_mult
+            )
+
+        out_block = self.synthesize(magnitude, frequency, out_shift)
+        return out_block

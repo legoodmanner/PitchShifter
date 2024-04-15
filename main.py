@@ -1,9 +1,11 @@
 import numpy as np
 import soundfile
-import pitchshift
+from modules.pitchshift import PitchShifter
+from modules.pitch_detection import track_pitch_mod, eval_pitchtrack_v2
 from pdb import set_trace as bp
 from get_params import get_params
-
+import librosa
+import matplotlib.pyplot as plt
 # Default parameters
 D_BLOCK_SIZE = 2048  # 4096
 D_N_BLOCKS = 4
@@ -16,7 +18,7 @@ D_F_FILTER_SIZE = 8 #8
 
 # INPUT_FILENAME = 'alphabet.wav'
 #INPUT_FILENAME = 'data/en001a.wav'
-INPUT_FILENAME = 'data/en005a.wav'
+INPUT_FILENAME = 'data/63-M2_AMairena.wav'
 OUTPUT_FILENAME = 'output.wav'
 
 class FileProcessor:
@@ -49,7 +51,7 @@ class FileProcessor:
         self.out_data = np.zeros((self.out_length, self.in_file.channels))
 
         self.pvc = [
-            pitchshift.PitchShifter(
+            PitchShifter(
                 self.rate,
                 self.block_size,
                 self.pitch_mult,
@@ -79,7 +81,6 @@ class FileProcessor:
                         self.pvc[channel].pitch_mult = D_PITCH_MULT
                 out_block = self.process_block(block[:, channel], channel)
                 self.out_data[t : t + out_block.size, channel] += out_block
-
                 
                 # for param in params:
                 #     if t/self.rate > param[0] and t/self.rate < param[1]:
@@ -108,6 +109,27 @@ class FileProcessor:
 
     def write(self, filename):
         soundfile.write(filename, self.out_data, self.rate)
+    
+    def evaluate(self):
+        blockSize = 2048
+        hopSize = blockSize // 2
+        y, sr = librosa.load(INPUT_FILENAME, sr=self.rate)
+        assert sr == self.rate, (sr, self.rate)
+        shifted_pitch, _ = track_pitch_mod(self.out_data, blockSize=blockSize, hopSize=hopSize, fs=self.rate, med_kernel_size=15)
+        origin_pitch, _  = track_pitch_mod(y, blockSize=blockSize, hopSize=hopSize, fs=self.rate, med_kernel_size=15)
+        shifted_origin_pitch = np.array(origin_pitch).copy()
+        params = get_params() # iters of tuple (t1, t2, ratio)
+        for (t1, t2, ratio) in params:
+            f1, f2 = librosa.time_to_frames([t1, t2], sr=self.rate, hop_length=hopSize)
+            shifted_origin_pitch[f1:f2] *= ratio
+        rmse, pfp, pfn = eval_pitchtrack_v2(shifted_pitch, shifted_origin_pitch)
+        # visialize
+        plt.plot(shifted_origin_pitch, label='shifted origin pitch')
+        plt.plot(shifted_pitch, label='shifted pitch')
+        plt.plot(origin_pitch, label='origin pitch')
+        plt.legend()
+        plt.savefig('resut.png')
+        print( rmse, pfp, pfn)
 
 
 if __name__ == "__main__":
@@ -115,6 +137,7 @@ if __name__ == "__main__":
     processor = FileProcessor(INPUT_FILENAME)
     processor.run()
     processor.write(OUTPUT_FILENAME)
+    processor.evaluate()
 
 
 # 2switch
