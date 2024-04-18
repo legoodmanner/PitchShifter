@@ -6,10 +6,9 @@ from pdb import set_trace as bp
 
 
 
-def get_params():
+def get_params(file_path):
     # Initialize an empty list to hold the tuples
     data_tuples = []
-    file_path = 'inputFile.txt'
     
     # Open the file in read mode
     with open(file_path, 'r') as file:

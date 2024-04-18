@@ -6,6 +6,9 @@ from pdb import set_trace as bp
 from get_params import get_params
 import librosa
 import matplotlib.pyplot as plt
+from argparse import ArgumentParser
+from os.path import join as pj
+from os.path import basename
 # Default parameters
 D_BLOCK_SIZE = 2048  # 4096
 D_N_BLOCKS = 4
@@ -16,21 +19,20 @@ D_F_FILTER_SIZE = 8 #8
 # T0 = 1
 # T1 = 3
 
-# INPUT_FILENAME = 'alphabet.wav'
-#INPUT_FILENAME = 'data/en001a.wav'
 INPUT_FILENAME = 'data/constantSound1.wav'
 OUTPUT_FILENAME = 'constantSound1_mod.wav'
 
 class FileProcessor:
     def __init__(
         self,
-        filename,
+        args,
         block_size=D_BLOCK_SIZE,
         n_blocks=D_N_BLOCKS,
         length_mult=D_LENGTH_MULT,
         pitch_mult=D_PITCH_MULT,
         f_filter_size=D_F_FILTER_SIZE,
-    ):
+    ):  
+        self.args = args
         self.block_size = block_size
         self.n_blocks = n_blocks
 
@@ -42,7 +44,7 @@ class FileProcessor:
         self.in_shift = self.block_size // self.n_blocks
         self.out_shift = int(self.in_shift * self.length_mult)
 
-        self.in_file = soundfile.SoundFile(filename)
+        self.in_file = soundfile.SoundFile(self.args.audio_path)
         self.rate = self.in_file.samplerate # Sampling frequency
 
         self.total_blocks = np.ceil(self.in_file.frames / self.in_shift)
@@ -61,7 +63,7 @@ class FileProcessor:
 
     def run(self):
         t = 0
-        params = get_params()
+        params = get_params(self.args.p_mults)
 
         for block in self.in_file.blocks(
             blocksize=self.block_size,
@@ -81,22 +83,6 @@ class FileProcessor:
                         self.pvc[channel].pitch_mult = D_PITCH_MULT
                 out_block = self.process_block(block[:, channel], channel)
                 self.out_data[t : t + out_block.size, channel] += out_block
-                
-                # for param in params:
-                #     if t/self.rate > param[0] and t/self.rate < param[1]:
-                #         self.pitch_mult = param[2]
-                #         self.pvc[channel].pitch_mult = param[2]
-                #         out_block = self.process_block(block[:, channel], channel)
-                #         self.out_data[t : t + out_block.size, channel] += out_block
-                    # else :
-                    #     self.pitch_mult = 1.5
-                    #     self.pvc[channel].pitch_mult = 1.5
-                    #     out_block = self.process_block(block[:, channel], channel)
-                    #     self.out_data[t : t + out_block.size] = block
-                # for param in params:
-                #     if t/self.rate < param[0] or t/self.rate > T1:
-                #         # self.out_data[t : t + out_block.size, channel] = block[:, channel]
-                #         self.out_data[t : t + out_block.size] = block
             t += self.out_shift
 
         self.in_file.close()
@@ -107,8 +93,12 @@ class FileProcessor:
         out_block = self.pvc[channel].process(block, self.in_shift, self.out_shift)
         return out_block
 
-    def write(self, filename):
-        soundfile.write(filename, self.out_data, self.rate)
+    def write(self, output_path=None):
+        soundfile.write(
+            output_path or pj(self.args.output_dir,'wavs', basename(self.args.audio_path).replace('.wav', '_mod.wav')), 
+            self.out_data, 
+            self.rate,
+        )
     
     def evaluate(self):
         blockSize = 2048
@@ -118,7 +108,7 @@ class FileProcessor:
         shifted_pitch, _ = track_pitch_mod(self.out_data, blockSize=blockSize, hopSize=hopSize, fs=self.rate, med_kernel_size=15, voicingThres=-15)
         origin_pitch, _  = track_pitch_mod(y, blockSize=blockSize, hopSize=hopSize, fs=self.rate, med_kernel_size=15)
         shifted_origin_pitch = np.array(origin_pitch).copy()
-        params = get_params() # iters of tuple (t1, t2, ratio)
+        params = get_params(self.args.p_mults) # iters of tuple (t1, t2, ratio)
         for (t1, t2, ratio) in params:
             f1, f2 = librosa.time_to_frames([t1, t2], sr=self.rate, hop_length=hopSize)
             shifted_origin_pitch[f1:f2] *= ratio
@@ -128,15 +118,20 @@ class FileProcessor:
         plt.plot(shifted_pitch, label='shifted pitch')
         plt.plot(origin_pitch, label='origin pitch')
         plt.legend()
-        plt.savefig('resut.png')
+        plt.savefig(pj(args.output_dir,'plots', basename(self.args.audio_path).replace('.wav', '.png')))
         print( rmse, pfp, pfn)
 
 
 if __name__ == "__main__":
 
-    processor = FileProcessor(INPUT_FILENAME)
+    parser = ArgumentParser()
+    parser.add_argument('--p_mults', required=True, type=str, help='The path of the txt file for p_mult' )
+    parser.add_argument('--audio_path', required=True, type=str, help='The path of the input audio file' )
+    parser.add_argument('--output_dir', required=True, type=str, help='The root of the directory the output audio files are', default='output' )
+    args = parser.parse_args()
+    processor = FileProcessor(args)
     processor.run()
-    processor.write(OUTPUT_FILENAME)
+    processor.write()
     processor.evaluate()
 
 
