@@ -18,8 +18,8 @@ D_F_FILTER_SIZE = 8 #8
 
 # INPUT_FILENAME = 'alphabet.wav'
 #INPUT_FILENAME = 'data/en001a.wav'
-INPUT_FILENAME = 'data/63-M2_AMairena.wav'
-OUTPUT_FILENAME = 'output.wav'
+INPUT_FILENAME = 'data/constantSound1.wav'
+OUTPUT_FILENAME = 'constantSound1_mod.wav'
 
 class FileProcessor:
     def __init__(
@@ -115,7 +115,7 @@ class FileProcessor:
         hopSize = blockSize // 2
         y, sr = librosa.load(INPUT_FILENAME, sr=self.rate)
         assert sr == self.rate, (sr, self.rate)
-        shifted_pitch, _ = track_pitch_mod(self.out_data, blockSize=blockSize, hopSize=hopSize, fs=self.rate, med_kernel_size=15)
+        shifted_pitch, _ = track_pitch_mod(self.out_data, blockSize=blockSize, hopSize=hopSize, fs=self.rate, med_kernel_size=15, voicingThres=-15)
         origin_pitch, _  = track_pitch_mod(y, blockSize=blockSize, hopSize=hopSize, fs=self.rate, med_kernel_size=15)
         shifted_origin_pitch = np.array(origin_pitch).copy()
         params = get_params() # iters of tuple (t1, t2, ratio)
